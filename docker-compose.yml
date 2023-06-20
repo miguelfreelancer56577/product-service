@@ -1,0 +1,14 @@
+version: '3'
+services:
+  mongo-server:
+    image: 'mongo'
+    volumes:
+      - /usr/app/mongo:/data/db
+  microservice:
+    build:
+      dockerfile: Dockerfile.dev
+      context: .
+    ports:
+      - '8080:8080'
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://mongo-server:27017/product-service
