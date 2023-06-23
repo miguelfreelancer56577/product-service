@@ -1,0 +1,14 @@
+name: test-github-actions
+run-name: ${{ github.actor }} is learning GitHub Actions
+on: [push]
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    name: Hello world
+    steps:
+      - uses: actions/checkout@v2
+      - name: Write a multi-line message
+        run: |
+          echo This demo file shows a 
+          echo very basic and easy-to-understand workflow.
