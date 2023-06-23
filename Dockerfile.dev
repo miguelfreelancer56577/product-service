@@ -1,11 +1,19 @@
+FROM maven:3.9-amazoncorretto-17 as builder
+
+WORKDIR /usr/app
+
+COPY . .
+
+RUN mvn clean package -DskipTests
+
 FROM openjdk:17-alpine
 
-# expose the mongodb port to let communication with another containers
+# expose the tomcat port to let communication with another containers
 EXPOSE 8080
 
 WORKDIR /usr/app
 
 ARG JAR_NAME=product-service-0.0.1-SNAPSHOT.jar
-COPY ./target/$JAR_NAME ./product-service.jar
+COPY --from=builder /usr/app/target/$JAR_NAME ./product-service.jar
 
 CMD ["java", "-jar", "./product-service.jar"]
