@@ -1,6 +1,7 @@
 name: build-and-test-changes
 run-name: ${{ github.actor }} has pushed a change.
-on: [push]
+on:
+  push
 
 jobs:
   mvn-build:
@@ -15,4 +16,5 @@ jobs:
           distribution: 'corretto'
           cache: 'maven'
       - name: Build maven
-        run: mvn clean package -DskipTests
+        run: |
+          mvn clean package -Drevision=$(git rev-parse --short HEAD)

@@ -10,10 +10,11 @@
 	</parent>
 	<groupId>com.github.mangelt</groupId>
 	<artifactId>product-service</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>${revision}</version>
 	<name>product-service</name>
 	<description>Product Service</description>
 	<properties>
+		<revision>1.0.0-SNAPSHOT</revision>
 		<java.version>17</java.version>
 	</properties>
 	<dependencies>
