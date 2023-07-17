@@ -1,0 +1,58 @@
+{
+  "AWSEBDockerrunVersion": 2,
+  "volumes": [
+    {
+      "name": "mongo-data",
+      "host": {
+        "sourcePath": "/var/app/current/mongo-data"
+      }
+    }
+  ],
+  "containerDefinitions": [
+    {
+      "name": "mongo-server",
+      "image": "mongo",
+      "essential": true,
+      "memory": 200,
+      "portMappings": [
+        {
+          "hostPort": 27017,
+          "containerPort": 27017
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "mongo-data",
+          "containerPath": "/data/db"
+        }
+      ]
+    },
+    {
+      "name": "product-service",
+      "image": "PRODUCT_SERVICE_URI",
+      "essential": true,
+      "memory": 128,
+      "portMappings": [
+        {
+          "hostPort": 8080,
+          "containerPort": 8080
+        }
+      ],
+      "links": [
+        "mongo-server"
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "awseb-logs-product-service",
+          "containerPath": "/var/log/product-service"
+        }
+      ],
+      "environment": [
+        {
+          "name": "SPRING_DATA_MONGODB_URI",
+          "value": "mongodb://mongo-server:27017/product-service"
+        }
+      ]
+    }
+  ]
+}

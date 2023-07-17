@@ -13,7 +13,7 @@ EXPOSE 8080
 
 WORKDIR /usr/app
 
-ARG JAR_NAME=product-service-0.0.1-SNAPSHOT.jar
+ARG JAR_NAME=product-service-dev-SNAPSHOT.jar
 COPY --from=builder /usr/app/target/$JAR_NAME ./product-service.jar
 
 CMD ["java", "-jar", "./product-service.jar"]
