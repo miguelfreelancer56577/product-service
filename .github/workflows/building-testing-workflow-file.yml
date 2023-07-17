@@ -1,4 +1,4 @@
-name: build-test_deploy-changes
+name: build-test-deploy-changes
 run-name: ${{ github.actor }} has trigger the job.
 on:
   workflow_dispatch
