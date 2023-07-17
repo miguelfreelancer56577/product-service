@@ -62,15 +62,6 @@
 		</dependencies>
 	</dependencyManagement>
 
-	<distributionManagement>
-		<repository>
-			<id>mangelt-org-mangelt-repo</id>
-			<name>mangelt-org-mangelt-repo</name>
-			<url>https://mangelt-org-941855257042.d.codeartifact.us-east-1.amazonaws.com/maven/mangelt-repo/</url>
-		</repository>
-	</distributionManagement>
-
-
 	<build>
 		<plugins>
 			<plugin>

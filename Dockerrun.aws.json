@@ -29,7 +29,7 @@
     },
     {
       "name": "product-service",
-      "image": "941855257042.dkr.ecr.us-east-1.amazonaws.com/product-service:dev",
+      "image": "PRODUCT_SERVICE_URI",
       "essential": true,
       "memory": 128,
       "portMappings": [
