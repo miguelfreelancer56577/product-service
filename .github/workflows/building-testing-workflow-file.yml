@@ -6,6 +6,11 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: product-service
+  FOLDER_NAME: tmp
+  BUCKET_NAME: elasticbeanstalk-us-east-1-941855257042
+  APPLICATION_NAME: Product-Service-dev
+  APPLICATION_ENV_NAME: Product-Service-dev-env
+  ZIP_NAME: deployment_package.zip
 
 jobs:
   mvn-build:
@@ -40,6 +45,27 @@ jobs:
           # push it to ECR so that it can
           # be deployed to Elastic Beantalk.
           export IMAGE_TAG=$(git rev-parse --short HEAD)
+          dev_image=$ECR_REGISTRY/$ECR_REPOSITORY:dev
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG . --build-arg JAR_NAME=product-service-$IMAGE_TAG.jar
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $dev_image  
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          docker push $dev_image
+          echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+      - name: Create ZIP deployment package
+        run: zip -r deployment_package.zip ./Dockerrun.aws.json
+      - name: Upload deployment package to S3
+        run: aws s3 cp $ZIP_NAME s3://$BUCKET_NAME/$FOLDER_NAME/
+      - name: Create version for ElasticBeanstalk Application
+        env:
+          IMAGE_TAG : ${{ steps.build-image.outputs.tag }}
+        run: |
+          aws elasticbeanstalk create-application-version \
+          --application-name $APPLICATION_NAME \
+          --source-bundle S3Bucket="$BUCKET_NAME",S3Key="$FOLDER_NAME/$ZIP_NAME" \
+          --version-label "$IMAGE_TAG" \
+          --description "commit-sha-$IMAGE_TAG"
+
+      - name: Deploy version to ElasticBeanstalk
+        env:
+          IMAGE_TAG: ${{ steps.build-image.outputs.tag }}
+        run: aws elasticbeanstalk update-environment --environment-name $APPLICATION_ENV_NAME --version-label "$IMAGE_TAG"
