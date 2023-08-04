@@ -1,0 +1,24 @@
+kind: ReplicationController
+apiVersion: v1
+metadata:
+  name: ms-controller
+  labels:
+    name: ms-controller
+spec:
+  replicas: 1
+  selector:
+    name: ms-pod
+  template:
+    metadata:
+      labels:
+        name: ms-pod
+    spec:
+      containers:
+        - name: product-service
+          env:
+            - name: SPRING_DATA_MONGODB_URI
+              value: mongodb://mongo-service:27017/product-service
+          image: 941855257042.dkr.ecr.us-east-1.amazonaws.com/product-service:dev
+          ports:
+            - containerPort: 8080
+              protocol: TCP
