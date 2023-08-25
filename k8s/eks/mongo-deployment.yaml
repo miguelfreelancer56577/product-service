@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: product-service-namespace
+  name: mongo-deployment
+  labels:
+    name: mongo-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: mongo-pod
+  template:
+    metadata:
+      labels:
+        name: mongo-pod
+    spec:
+      containers:
+        - name: mongo
+          image: mongo
+          ports:
+            - containerPort: 27017

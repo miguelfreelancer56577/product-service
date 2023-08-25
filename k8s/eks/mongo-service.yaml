@@ -1,0 +1,14 @@
+kind: Service
+apiVersion: v1
+metadata:
+  namespace: product-service-namespace
+  name: mongo-service
+spec:
+  type: ClusterIP
+  selector:
+    name: mongo-pod
+  ports:
+    - port: 27017
+      targetPort: 27017
+      protocol: TCP
+      

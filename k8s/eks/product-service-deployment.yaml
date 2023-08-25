@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: product-service-namespace
+  name: product-service-deployment
+  labels:
+    # These are labels attached to the Deployment object
+    name: product-service-deployment
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      # this label is used to target all pods
+      app: product-service
+      # this label is used by DestinationRule object to
+      # point to the specific pods from the VirtualService
+      # through the Service object
+      version: v1
+  strategy:
+    rollingUpdate:
+      maxSurge: 30%
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        # targeted labels used by the Deployment object
+        app: product-service
+        version: v1
+    spec:
+      #      You can ensure that you add this nodePool: cluster as label to all your nodes so the pod will be scheduled
+      #      by using the available selector.
+      #      https://stackoverflow.com/questions/60166842/pod-is-in-pending-stage-error-failedscheduling-nodes-didnt-match-node-sel
+      nodeSelector:
+        environment: dev
+      serviceAccountName: product-service-svc-account
+      containers:
+      - name: product-service-container
+        image: 941855257042.dkr.ecr.us-east-1.amazonaws.com/product-service:dev
+        imagePullPolicy: IfNotPresent
+        # Here getting environment variables from a ConfigMap object
+        envFrom:
+          - configMapRef:
+              name: product-service-config-map
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: 500m
+          requests:
+            cpu: 200m

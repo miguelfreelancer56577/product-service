@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: product-service-namespace
+  name: product-service-svc-account
+  labels:
+    account: product-service-account
