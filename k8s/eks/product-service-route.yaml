@@ -1,0 +1,21 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  namespace: product-service-namespace
+  name: product-service-route
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - product-service-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /api/v1/product
+      route:
+        - destination:
+            # value of the host property for the DestinationRule object
+            host: product-service
+            port:
+              number: 8080
+

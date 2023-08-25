@@ -1,0 +1,9 @@
+apiVersion: v1
+data:
+  SPRING_DATA_MONGODB_URI: mongodb://mongo-service:27017/product-service
+kind: ConfigMap
+metadata:
+  namespace: product-service-namespace
+  labels:
+    name: product-service-config-map
+  name: product-service-config-map

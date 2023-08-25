@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: product-service-namespace
+  # name of the host to call the product-service by internal services running in the cluster
+  name: product-service
+  labels:
+    name: product-service-svc
+    service: product-service
+spec:
+  ports:
+    - port: 8080
+      name: http
+  selector:
+    app: product-service

@@ -46,8 +46,7 @@ jobs:
           # be deployed to Elastic Beantalk.
           export IMAGE_TAG=$(git rev-parse --short HEAD)
           dev_image=$ECR_REGISTRY/$ECR_REPOSITORY:dev
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG . --build-arg JAR_NAME=product-service-$IMAGE_TAG.jar
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $dev_image  
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $dev_image . --build-arg JAR_NAME=product-service-$IMAGE_TAG.jar
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $dev_image
           echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
