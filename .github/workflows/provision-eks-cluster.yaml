@@ -1,0 +1,167 @@
+name: provision-eks-cluster
+run-name: ${{ github.actor }} has trigger provision-eks-cluster job.
+on:
+  workflow_dispatch
+
+env:
+  AWS_REGION: us-east-1
+  CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+  NODE_GROUP_NAME: ${{ vars.EKS_NODE_GROUP_NAME }}
+  KUBERNETES_VERSION: 1.27
+  CLUSTER_RULE: ${{ vars.EKS_CLUSTER_RULE }}
+  NODE_RULE: ${{ vars.EKS_NODE_RULE }}
+  USER_ARN: ${{ secrets.USER_ARN }}
+  SECURITY_GROUP_IDS: sg-057b3b21b5110b977
+  SUBNET_IDS:  subnet-57505c30,subnet-5808ce56,subnet-2702de6a,subnet-9f4941c3,subnet-3398931d
+  LABELS: environment=dev
+  INSTANCE_TYPES: t3a.medium
+  AMI_TYPE: AL2_x86_64
+  DISK_SIZE: 8
+  SCALING_CONFIG: minSize=1,maxSize=1,desiredSize=1
+  ENVIRONMENT: dev
+  ISTIO_VERSION: 1.19.0
+
+jobs:
+  eks-pipeline:
+    runs-on: ubuntu-latest
+    name: eks-pipeline
+    steps:
+      - uses: actions/checkout@v2
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@0e613a0980cbf65ed5b322eb7a1e075d28913a83
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Create EKS Cluster
+        run: |
+          aws eks create-cluster --name $CLUSTER_NAME --kubernetes-version $KUBERNETES_VERSION \
+          --role-arn $CLUSTER_RULE \
+          --resources-vpc-config subnetIds=$SUBNET_IDS,securityGroupIds=$SECURITY_GROUP_IDS
+
+          rs='None'
+          echo "######################### Waiting for cluster to be in ACTIVE status. #########################"
+          while [ $rs != 'ACTIVE' ]
+          do
+            rs=$(aws eks describe-cluster --name $CLUSTER_NAME --query cluster.status --output text)
+            echo "######################### Cluster status: $rs #########################"
+            if [ $rs != "ACTIVE" ]; then
+              echo "######################### Waiting 20 seconds to query again cluster status #########################"
+              sleep 10
+            fi
+          done
+      # aws eks describe-cluster --name Product-Service-Dev --query cluster.status
+      - name: Create Node Group
+        run: |
+          aws eks create-nodegroup \
+          --cluster-name $CLUSTER_NAME \
+          --nodegroup-name $NODE_GROUP_NAME \
+          --labels $LABELS \
+          --node-role $NODE_RULE \
+          --instance-types $INSTANCE_TYPES \
+          --ami-type $AMI_TYPE \
+          --disk-size $DISK_SIZE \
+          --scaling-config $SCALING_CONFIG \
+          --subnets $(echo $SUBNET_IDS | tr "," " ")
+
+          rs='None'
+          echo "######################### Waiting for nodes to be ready. #########################"
+          while [ $rs != 'ACTIVE' ]
+          do
+            rs=$(aws eks describe-nodegroup --cluster-name $CLUSTER_NAME --nodegroup-name $NODE_GROUP_NAME --query nodegroup.status --output text)
+            echo "######################### Node status: $rs #########################"
+            if [ $rs != "ACTIVE" ]; then
+              echo "######################### Waiting 20 seconds to query again cluster status #########################"
+              sleep 10
+            fi
+          done
+      - name: Setup kubectl
+        env:
+          MASK_ROLE_ARN: 1af9f25e-0a58-470e-8863-b29dfeea87d7
+          MASK_USER_ARN: 9f5e2038-069d-4ab7-bae3-fdf45d447431
+        run: |
+          # set eks context 
+          aws eks update-kubeconfig --name $CLUSTER_NAME  
+          
+          # grant permissions to my root user to be able to handle eks cluster from aws console
+          cat > aws-auth-cm.yaml <<EOF
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: aws-auth
+                namespace: kube-system
+              data:
+                mapRoles: |
+                  - rolearn: <$MASK_ROLE_ARN>
+                    username: system:node:{{EC2PrivateDNSName}}
+                    groups:
+                      - system:bootstrappers
+                      - system:nodes
+                mapUsers: |
+                  - userarn: <$MASK_USER_ARN>
+                    username: root
+                    groups:
+                      - system:masters
+          EOF
+          
+          # set value for role arn
+          sed -i.bak -e "s|<$MASK_ROLE_ARN>|$NODE_RULE|" aws-auth-cm.yaml
+          
+          # set value for user arn
+          sed -i.bak -e "s|<$MASK_USER_ARN>|$USER_ARN|" aws-auth-cm.yaml
+          
+          #apply config
+          kubectl apply -f aws-auth-cm.yaml
+
+      - name: Setup istio
+        run: |
+          # dowload istio
+          curl -L https://istio.io/downloadIstio | ISTIO_VERSION=$ISTIO_VERSION TARGET_ARCH=x86_64 sh -
+          cd istio-1.*    
+          
+          # Create a namespace istio-system for Istio components:
+          kubectl create namespace istio-system
+          
+          # Install the Istio base chart which contains cluster-wide resources used by the Istio control plane:
+          helm install -n istio-system istio-base \
+          manifests/charts/base
+          
+          # Install the Istio discovery chart which deploys the istiod service:
+          helm install --namespace istio-system istiod \
+          manifests/charts/istio-control/istio-discovery \
+          --set global.hub="docker.io/istio" --set global.tag="$ISTIO_VERSION"
+          
+          # Install the Istio ingress gateway chart which contains the ingress gateway components:
+          helm install --namespace istio-system istio-ingress \
+          manifests/charts/gateways/istio-ingress  \
+          --set global.hub="docker.io/istio" --set global.tag="$ISTIO_VERSION" \
+          --set gateways.istio-ingressgateway.serviceAnnotations."service\.beta\.kubernetes\.io/aws-load-balancer-proxy-protocol"="*" \
+          --set gateways.istio-ingressgateway.serviceAnnotations."service\.beta\.kubernetes\.io/aws-load-balancer-connection-idle-timeout"="60" \
+          --set gateways.istio-ingressgateway.serviceAnnotations."service\.beta\.kubernetes\.io/aws-load-balancer-cross-zone-load-balancing-enabled"="true" \
+          --set gateways.istio-ingressgateway.serviceAnnotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"="nlb"
+          
+          # verify the deployment. Ensure all k8s pods in istio-system namespace 
+          # are deployed and have a STATUS of Running
+          kubectl get all -n istio-system
+
+      - name: Install Metrics Service
+        run: |
+          # deploy the Metrics Server 
+          kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+          
+          # Check metric-server and apiService 
+          kubectl get deployment metrics-server -n kube-system
+
+      - name: Deploy Application
+        run: |
+          # Create own namespace to deploy the application 
+          kubectl create namespace product-service-namespace
+          
+          # Attach istio as service netwoking layer  
+          kubectl label namespace product-service-namespace istio-injection=enabled
+          
+          # Deploy application to Kubernetes
+          kubectl apply -n product-service-namespace -f ./k8s/eks
+          
+          # Print out all objects
+          kubectl get all -n product-service-namespace
